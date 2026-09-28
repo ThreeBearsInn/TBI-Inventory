@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Three Bears Inn — Inventory</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f0f6ff; font-family: Georgia, 'Times New Roman', serif; color: #0d2d5e; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #dbeafe; }
+    ::-webkit-scrollbar-thumb { background: #1a56a0; border-radius: 4px; }
+    @keyframes fadeIn  { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes modalIn { from { opacity:0; transform:scale(.96) } to { opacity:1; transform:scale(1) } }
+    @keyframes pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(46,125,209,.5)} 50%{box-shadow:0 0 0 12px rgba(46,125,209,0)} }
+    .highlight-row { animation: pulse 1.8s ease 3; background: #dbeafe !important; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+  const B = {
+    navyDark:"#081e42", navy:"#0d2d5e", mid:"#1a56a0", bright:"#2e7dd1",
+    pale:"#dbeafe", paleMid:"#bfdbfe", bg:"#f0f6ff",
+    text:"#0d2d5e", textMid:"#1e4a7a", textLight:"#5b7fa6",
+    border:"#c3d9f5", rowAlt:"#f7faff",
+  };
+
+  const BASE_CATEGORIES = ["Linens","Towels","Cleaning Supplies","Toiletries","Kitchen","Maintenance","Guest Amenities"];
+  const CAT_STORE = "tbi-categories-v1";
+  const CAT_ICONS  = {"Linens":"🛏️","Towels":"🏨","Cleaning Supplies":"🧹","Toiletries":"🧴","Kitchen":"☕","Guest Amenities":"✨","Maintenance":"🔧"};
+  const STATUS     = i => i.quantity <= i.reorder ? "critical" : i.quantity < i.par ? "low" : "ok";
+  const S_LABEL    = { critical:"Reorder Now", low:"Running Low", ok:"In Stock" };
+  const S_CLR      = {
+    critical:{ bg:"#fee2e2", text:"#991b1b", dot:"#dc2626", badge:"rgba(220,38,38,.13)" },
+    low:     { bg:"#fef9c3", text:"#854d0e", dot:"#ca8a04", badge:"rgba(202,138,4,.13)" },
+    ok:      { bg:"#dcfce7", text:"#166534", dot:"#16a34a", badge:"rgba(22,163,74,.13)" },
+  };
+  const EMPTY  = { name:"", category:"Linens", unit:"pcs", quantity:0, par:0, reorder:0, supplier:"", notes:"", priceEach:"", priceBulk:"", bulkQty:"" };
+  const skuOf  = id => `TBI-${String(id).padStart(5,"0")}`;
+  const STORE  = "tbi-inv-qr-v2";
+  const fmt$   = v => v ? `$${parseFloat(v).toFixed(2)}` : null;
+
+  // Build the item URL for QR code — always uses current page location
+  const itemUrl = id => {
+    const base = window.location.href.split("?")[0];
+    return `${base}?item=${skuOf(id)}`;
+  };
+
+  const INITIAL = [
+    {id:1,  name:"Queen Fitted Sheets",           category:"Linens",            unit:"sets",    quantity:24,  par:18,  reorder:12, supplier:"Hotel Linen Co.",    notes:"300TC white cotton",        lastUpdated:"2026-03-08"},
+    {id:2,  name:"King Fitted Sheets",            category:"Linens",            unit:"sets",    quantity:12,  par:10,  reorder:6,  supplier:"Hotel Linen Co.",    notes:"300TC white cotton",        lastUpdated:"2026-03-08"},
+    {id:3,  name:"Pillowcases (Standard)",        category:"Linens",            unit:"pairs",   quantity:30,  par:24,  reorder:14, supplier:"Hotel Linen Co.",    notes:"White, set of 2",           lastUpdated:"2026-03-05"},
+    {id:4,  name:"Duvet Covers (Queen)",          category:"Linens",            unit:"pcs",     quantity:8,   par:12,  reorder:8,  supplier:"Hotel Linen Co.",    notes:"White quilted",             lastUpdated:"2026-03-01"},
+    {id:5,  name:"Duvet Covers (King)",           category:"Linens",            unit:"pcs",     quantity:4,   par:8,   reorder:5,  supplier:"Hotel Linen Co.",    notes:"White quilted",             lastUpdated:"2026-03-01"},
+    {id:6,  name:"Bed Skirts (Queen)",            category:"Linens",            unit:"pcs",     quantity:6,   par:6,   reorder:4,  supplier:"Hotel Linen Co.",    notes:"Ivory",                     lastUpdated:"2026-02-20"},
+    {id:7,  name:"Bath Towels",                   category:"Towels",            unit:"pcs",     quantity:48,  par:40,  reorder:24, supplier:"Welspun USA",        notes:"White 650gsm",              lastUpdated:"2026-03-07"},
+    {id:8,  name:"Hand Towels",                   category:"Towels",            unit:"pcs",     quantity:36,  par:32,  reorder:20, supplier:"Welspun USA",        notes:"White 650gsm",              lastUpdated:"2026-03-07"},
+    {id:9,  name:"Washcloths",                    category:"Towels",            unit:"pcs",     quantity:60,  par:48,  reorder:30, supplier:"Welspun USA",        notes:"White 650gsm",              lastUpdated:"2026-03-07"},
+    {id:10, name:"Bath Mats",                     category:"Towels",            unit:"pcs",     quantity:14,  par:12,  reorder:8,  supplier:"Welspun USA",        notes:"White, non-slip",           lastUpdated:"2026-03-02"},
+    {id:11, name:"Pool Towels",                   category:"Towels",            unit:"pcs",     quantity:20,  par:16,  reorder:10, supplier:"Welspun USA",        notes:"Striped blue/white",        lastUpdated:"2026-02-28"},
+    {id:12, name:"All-Purpose Cleaner",           category:"Cleaning Supplies", unit:"gallons", quantity:6,   par:8,   reorder:4,  supplier:"CleanPro Supply",    notes:"Concentrate, dilute 1:32",  lastUpdated:"2026-03-06"},
+    {id:13, name:"Bathroom Disinfectant",         category:"Cleaning Supplies", unit:"gallons", quantity:3,   par:6,   reorder:3,  supplier:"CleanPro Supply",    notes:"EPA registered",            lastUpdated:"2026-03-06"},
+    {id:14, name:"Glass Cleaner",                 category:"Cleaning Supplies", unit:"bottles", quantity:12,  par:10,  reorder:6,  supplier:"CleanPro Supply",    notes:"32oz spray",                lastUpdated:"2026-03-04"},
+    {id:15, name:"Laundry Detergent",             category:"Cleaning Supplies", unit:"lbs",     quantity:40,  par:30,  reorder:20, supplier:"Ecolab",             notes:"Commercial formula",        lastUpdated:"2026-03-08"},
+    {id:16, name:"Fabric Softener",               category:"Cleaning Supplies", unit:"gallons", quantity:4,   par:4,   reorder:2,  supplier:"Ecolab",             notes:"",                          lastUpdated:"2026-02-25"},
+    {id:17, name:"Bleach (Chlorine)",             category:"Cleaning Supplies", unit:"gallons", quantity:5,   par:6,   reorder:3,  supplier:"Ecolab",             notes:"10% solution",              lastUpdated:"2026-03-01"},
+    {id:18, name:"Microfiber Cloths",             category:"Cleaning Supplies", unit:"pcs",     quantity:30,  par:24,  reorder:15, supplier:"CleanPro Supply",    notes:"Color-coded per room type", lastUpdated:"2026-02-18"},
+    {id:19, name:"Mop Heads",                     category:"Cleaning Supplies", unit:"pcs",     quantity:4,   par:6,   reorder:3,  supplier:"CleanPro Supply",    notes:'18" loop end',              lastUpdated:"2026-02-15"},
+    {id:20, name:"Shampoo (2oz)",                 category:"Toiletries",        unit:"bottles", quantity:120, par:100, reorder:60, supplier:"Gilchrist & Soames", notes:"Amenity size",              lastUpdated:"2026-03-08"},
+    {id:21, name:"Conditioner (2oz)",             category:"Toiletries",        unit:"bottles", quantity:110, par:100, reorder:60, supplier:"Gilchrist & Soames", notes:"Amenity size",              lastUpdated:"2026-03-08"},
+    {id:22, name:"Body Lotion (2oz)",             category:"Toiletries",        unit:"bottles", quantity:95,  par:100, reorder:60, supplier:"Gilchrist & Soames", notes:"Amenity size",              lastUpdated:"2026-03-08"},
+    {id:23, name:"Body Wash (2oz)",               category:"Toiletries",        unit:"bottles", quantity:85,  par:100, reorder:60, supplier:"Gilchrist & Soames", notes:"Amenity size",              lastUpdated:"2026-03-08"},
+    {id:24, name:"Bar Soap (1.5oz)",              category:"Toiletries",        unit:"bars",    quantity:200, par:150, reorder:80, supplier:"Gilchrist & Soames", notes:"Individually wrapped",      lastUpdated:"2026-03-05"},
+    {id:25, name:"Dental Kits",                   category:"Toiletries",        unit:"kits",    quantity:40,  par:50,  reorder:30, supplier:"AmeriCare",          notes:"Toothbrush + paste",        lastUpdated:"2026-03-02"},
+    {id:26, name:"Shower Caps",                   category:"Toiletries",        unit:"pcs",     quantity:75,  par:60,  reorder:40, supplier:"AmeriCare",          notes:"",                          lastUpdated:"2026-03-01"},
+    {id:27, name:"Cotton Swabs",                  category:"Toiletries",        unit:"boxes",   quantity:18,  par:20,  reorder:12, supplier:"AmeriCare",          notes:"10ct per box",              lastUpdated:"2026-02-28"},
+    {id:28, name:"Coffee Pods (Breakfast Blend)", category:"Kitchen",           unit:"boxes",   quantity:10,  par:12,  reorder:6,  supplier:"Stonewall Kitchen",  notes:"24ct per box",              lastUpdated:"2026-03-07"},
+    {id:29, name:"Tea Assortment",                category:"Kitchen",           unit:"boxes",   quantity:8,   par:10,  reorder:5,  supplier:"Bigelow Tea",        notes:"20ct per box",              lastUpdated:"2026-03-07"},
+    {id:30, name:"Sugar Packets",                 category:"Kitchen",           unit:"boxes",   quantity:5,   par:6,   reorder:3,  supplier:"Sysco",              notes:"200ct per box",             lastUpdated:"2026-03-05"},
+    {id:31, name:"Creamer Pods",                  category:"Kitchen",           unit:"boxes",   quantity:4,   par:6,   reorder:3,  supplier:"Sysco",              notes:"200ct per box",             lastUpdated:"2026-03-05"},
+    {id:32, name:"Stationery Kits",               category:"Guest Amenities",   unit:"kits",    quantity:16,  par:12,  reorder:8,  supplier:"Paper Source",       notes:"Notepad + pen + envelope",  lastUpdated:"2026-03-03"},
+    {id:33, name:"Sewing Kits",                   category:"Guest Amenities",   unit:"kits",    quantity:30,  par:24,  reorder:15, supplier:"AmeriCare",          notes:"",                          lastUpdated:"2026-03-01"},
+    {id:34, name:"Shoe Shine Kits",               category:"Guest Amenities",   unit:"kits",    quantity:20,  par:16,  reorder:10, supplier:"AmeriCare",          notes:"",                          lastUpdated:"2026-02-25"},
+    {id:35, name:"Hangers (Wooden)",              category:"Guest Amenities",   unit:"pcs",     quantity:45,  par:40,  reorder:25, supplier:"Wood & Wire",        notes:"Branded logo",              lastUpdated:"2026-02-10"},
+    {id:36, name:"Lightbulbs (LED A19)",          category:"Maintenance",       unit:"pcs",     quantity:20,  par:15,  reorder:10, supplier:"Home Depot",         notes:"2700K warm white",          lastUpdated:"2026-02-28"},
+    {id:37, name:"AA Batteries",                  category:"Maintenance",       unit:"packs",   quantity:6,   par:8,   reorder:4,  supplier:"Costco",             notes:"12ct per pack",             lastUpdated:"2026-02-20"},
+    {id:38, name:"AAA Batteries",                 category:"Maintenance",       unit:"packs",   quantity:4,   par:6,   reorder:3,  supplier:"Costco",             notes:"12ct per pack",             lastUpdated:"2026-02-20"},
+    {id:39, name:"Trash Bags (13gal)",            category:"Maintenance",       unit:"rolls",   quantity:6,   par:8,   reorder:4,  supplier:"Sysco",              notes:"50ct per roll",             lastUpdated:"2026-03-01"},
+    {id:40, name:"Toilet Paper",                  category:"Maintenance",       unit:"cases",   quantity:4,   par:6,   reorder:3,  supplier:"Sysco",              notes:"96 rolls per case",         lastUpdated:"2026-03-05"},
+  ];
+
+  /* ── QR Code component ── */
+  function QRCode({ url, size=120 }) {
+    const ref = useRef(null);
+    const qrRef = useRef(null);
+    useEffect(() => {
+      if (!ref.current || !window.QRCode) return;
+      if (qrRef.current) { qrRef.current.clear(); qrRef.current.makeCode(url); return; }
+      ref.current.innerHTML = "";
+      qrRef.current = new window.QRCode(ref.current, {
+        text: url, width: size, height: size,
+        colorDark: B.navy, colorLight: "#ffffff",
+        correctLevel: window.QRCode.CorrectLevel.M,
+      });
+    }, [url, size]);
+    return <div ref={ref} style={{lineHeight:0}}/>;
+  }
+
+  /* ── QR Modal ── */
+  function QRModal({ item, onClose }) {
+    const sku = skuOf(item.id);
+    const url = itemUrl(item.id);
+    const st  = STATUS(item);
+    const sc  = S_CLR[st];
+
+    const printLabel = () => {
+      const imgEl = document.querySelector("#qr-print-img img") || document.querySelector("#qr-print-img canvas");
+      const dataUrl = imgEl instanceof HTMLCanvasElement
+        ? imgEl.toDataURL()
+        : (imgEl ? imgEl.src : "");
+      const w = window.open("","_blank","width=360,height=480");
+      w.document.write(`<!DOCTYPE html><html><head><title>${item.name}</title>
+        <style>
+          body{font-family:Georgia,serif;text-align:center;padding:24px;color:#0d2d5e}
+          .logo{font-size:22px;font-weight:700;margin-bottom:2px}
+          .sub{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#1a56a0;margin-bottom:16px}
+          .qr{margin:12px auto;border:2px solid #c3d9f5;border-radius:10px;padding:10px;width:fit-content}
+          .sku{font-size:13px;font-weight:700;letter-spacing:2px;color:#1a56a0;margin:10px 0 4px}
+          .name{font-size:15px;font-weight:700;margin-bottom:4px}
+          .meta{font-size:11px;color:#5b7fa6}
+          .status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-top:8px;
+            background:${sc.bg};color:${sc.text}}
+          .url{font-size:9px;color:#5b7fa6;word-break:break-all;margin-top:12px;padding-top:10px;border-top:1px solid #dbeafe}
+        </style></head><body>
+        <div class="logo">🐻 Three Bears Inn</div>
+        <div class="sub">Inventory Label</div>
+        <div class="qr">${dataUrl ? `<img src="${dataUrl}" width="140" height="140"/>` : ""}</div>
+        <div class="sku">${sku}</div>
+        <div class="name">${item.name}</div>
+        <div class="meta">${item.category} &nbsp;·&nbsp; ${item.supplier}</div>
+        <div class="meta">Qty: ${item.quantity} ${item.unit} &nbsp;·&nbsp; Par: ${item.par}</div>
+        ${item.priceEach ? `<div class="meta" style="color:#166534;font-weight:700">$${parseFloat(item.priceEach).toFixed(2)} / ${item.unit}${item.priceBulk && item.bulkQty ? ` &nbsp;·&nbsp; Bulk: $${parseFloat(item.priceBulk).toFixed(2)} / ${item.bulkQty}` : ""}</div>` : ""}
+        <div class="status">${S_LABEL[st]}</div>
+        <div class="url">Scan to open: ${url}</div>
+        <script>window.onload=()=>{window.print();}<\/script>
+        </body></html>`);
+      w.document.close();
+    };
+
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(8,30,66,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(6px)"}}>
+        <div style={{background:"#fff",borderRadius:24,padding:36,width:"min(96vw,460px)",boxShadow:"0 28px 72px rgba(13,45,94,.45)",animation:"modalIn .2s ease"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <div>
+              <h2 style={{fontSize:18,fontWeight:700,color:B.navy,marginBottom:2}}>Scannable QR Code</h2>
+              <p style={{fontSize:12,color:B.textLight}}>Camera scan opens this item directly</p>
+            </div>
+            <button onClick={onClose} style={{background:B.pale,border:"none",borderRadius:8,padding:"6px 13px",cursor:"pointer",color:B.navy,fontWeight:700,fontSize:15}}>✕</button>
+          </div>
+
+          {/* QR + item card */}
+          <div style={{background:B.bg,borderRadius:18,padding:24,border:`1.5px solid ${B.border}`,marginBottom:18,display:"flex",gap:20,alignItems:"center"}}>
+            <div id="qr-print-img" style={{flexShrink:0,background:"#fff",borderRadius:12,padding:10,border:`1px solid ${B.border}`}}>
+              <QRCode url={url} size={130}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:B.mid,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{sku}</div>
+              <div style={{fontSize:16,fontWeight:700,color:B.navy,marginBottom:4}}>{item.name}</div>
+              <div style={{fontSize:12,color:B.textLight,marginBottom:8}}>{item.category} · {item.supplier}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:item.priceEach||item.priceBulk?8:0}}>
+                <span style={{background:B.pale,color:B.mid,fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:600}}>
+                  Qty: {item.quantity} {item.unit}
+                </span>
+                <span style={{background:sc.badge,color:sc.text,fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:sc.dot,display:"inline-block"}}/>
+                  {S_LABEL[st]}
+                </span>
+              </div>
+              {(item.priceEach||item.priceBulk)&&(
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {item.priceEach&&(
+                    <span style={{background:"#f0fdf4",color:"#166534",fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:600,border:"1px solid #bbf7d0"}}>
+                      💲{fmt$(item.priceEach)} / {item.unit}
+                    </span>
+                  )}
+                  {item.priceBulk&&item.bulkQty&&(
+                    <span style={{background:"#eff6ff",color:B.mid,fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:600,border:`1px solid ${B.paleMid}`}}>
+                      📦 {fmt$(item.priceBulk)} / {item.bulkQty} {item.unit}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* URL hint */}
+          <div style={{background:B.bg,borderRadius:10,padding:"10px 14px",marginBottom:18,border:`1px solid ${B.border}`}}>
+            <div style={{fontSize:10,color:B.textLight,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Scan destination</div>
+            <div style={{fontSize:11,color:B.textMid,wordBreak:"break-all",fontFamily:"monospace"}}>{url}</div>
+          </div>
+
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,background:B.pale,color:B.navy,border:"none",borderRadius:10,padding:"11px",fontFamily:"inherit",fontSize:14,cursor:"pointer",fontWeight:600}}>
+              Close
+            </button>
+            <button onClick={printLabel} style={{flex:2,background:B.mid,color:"#fff",border:"none",borderRadius:10,padding:"11px",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+              🖨️ Print Label
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Main App ── */
+  function App() {
+    const [inventory,      setInventory]      = useState(() => {
+      try { const s = localStorage.getItem(STORE); return s ? JSON.parse(s) : INITIAL; } catch { return INITIAL; }
+    });
+    const [categories,     setCategories]     = useState(() => {
+      try { const s = localStorage.getItem(CAT_STORE); return s ? JSON.parse(s) : BASE_CATEGORIES; } catch { return BASE_CATEGORIES; }
+    });
+    const [newCatValue,    setNewCatValue]    = useState("");
+    const [showNewCat,     setShowNewCat]     = useState(false);
+    const [activeCategory, setActiveCategory] = useState("All");
+    const [search,         setSearch]         = useState("");
+    const [sortBy,         setSortBy]         = useState("name");
+    const [sortDir,        setSortDir]        = useState("asc");
+    const [modal,          setModal]          = useState(null);
+    const [form,           setForm]           = useState(EMPTY);
+    const [adjustItem,     setAdjustItem]     = useState(null);
+    const [adjustAmt,      setAdjustAmt]      = useState("");
+    const [adjustMode,     setAdjustMode]     = useState("add");
+    const [filterStatus,   setFilterStatus]   = useState("all");
+    const [toast,          setToast]          = useState(null);
+    const [qrItem,         setQrItem]         = useState(null);
+    const [highlightId,    setHighlightId]    = useState(null);
+    const rowRefs = useRef({});
+
+    /* ── Deep-link: ?item=TBI-00005 ── */
+    useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const itemParam = params.get("item");
+      if (!itemParam) return;
+      const found = inventory.find(i => skuOf(i.id) === itemParam.toUpperCase());
+      if (!found) return;
+      setActiveCategory("All");
+      setSearch("");
+      setFilterStatus("all");
+      setHighlightId(found.id);
+      setTimeout(() => {
+        const row = rowRefs.current[found.id];
+        if (row) row.scrollIntoView({ behavior:"smooth", block:"center" });
+        setTimeout(() => setHighlightId(null), 5400);
+      }, 400);
+    }, []);
+
+    const save = data => {
+      setInventory(data);
+      try { localStorage.setItem(STORE, JSON.stringify(data)); } catch {}
+    };
+
+    const saveCategories = cats => {
+      setCategories(cats);
+      try { localStorage.setItem(CAT_STORE, JSON.stringify(cats)); } catch {}
+    };
+
+    const addCategory = () => {
+      const name = newCatValue.trim();
+      if (!name || categories.includes(name)) { setNewCatValue(""); setShowNewCat(false); return; }
+      const updated = [...categories, name];
+      saveCategories(updated);
+      setForm(p => ({ ...p, category: name }));
+      setNewCatValue(""); setShowNewCat(false);
+    };
+
+    const deleteCategory = cat => {
+      if (BASE_CATEGORIES.includes(cat)) return; // can't delete built-ins
+      saveCategories(categories.filter(c => c !== cat));
+      if (form.category === cat) setForm(p => ({ ...p, category: categories[0] }));
+    };
+
+    const showToast = (msg, type="success") => {
+      setToast({msg,type}); setTimeout(()=>setToast(null),2800);
+    };
+
+    const filtered = useMemo(() => {
+      let items = inventory;
+      if (activeCategory !== "All") items = items.filter(i => i.category === activeCategory);
+      if (filterStatus   !== "all") items = items.filter(i => STATUS(i) === filterStatus);
+      if (search.trim())            items = items.filter(i =>
+        i.name.toLowerCase().includes(search.toLowerCase()) ||
+        i.supplier.toLowerCase().includes(search.toLowerCase()) ||
+        skuOf(i.id).includes(search.toUpperCase())
+      );
+      return [...items].sort((a,b) => {
+        let va=a[sortBy], vb=b[sortBy];
+        if (typeof va==="string") { va=va.toLowerCase(); vb=vb.toLowerCase(); }
+        return sortDir==="asc" ? (va>vb?1:-1) : (va<vb?1:-1);
+      });
+    }, [inventory, activeCategory, filterStatus, search, sortBy, sortDir]);
+
+    const stats = useMemo(() => ({
+      total:    inventory.length,
+      critical: inventory.filter(i=>STATUS(i)==="critical").length,
+      low:      inventory.filter(i=>STATUS(i)==="low").length,
+      ok:       inventory.filter(i=>STATUS(i)==="ok").length,
+    }), [inventory]);
+
+    const openAdd  = () => { setForm({...EMPTY,id:Date.now()}); setModal({mode:"add"}); };
+    const openEdit = item => { setForm({...item}); setModal({mode:"edit"}); };
+
+    const handleSave = () => {
+      if (!form.name.trim()) return;
+      const today = new Date().toISOString().slice(0,10);
+      const updated = form.id && inventory.find(i=>i.id===form.id)
+        ? inventory.map(i=>i.id===form.id?{...form,lastUpdated:today}:i)
+        : [...inventory,{...form,id:Date.now(),lastUpdated:today}];
+      save(updated); setModal(null);
+      showToast(modal.mode==="add"?`${form.name} added`:`${form.name} updated`);
+    };
+
+    const handleDelete = id => {
+      const item = inventory.find(i=>i.id===id);
+      save(inventory.filter(i=>i.id!==id)); setModal(null);
+      showToast(`${item.name} removed`,"error");
+    };
+
+    const handleAdjust = () => {
+      if (!adjustAmt||isNaN(adjustAmt)) return;
+      const amt=parseInt(adjustAmt), today=new Date().toISOString().slice(0,10);
+      save(inventory.map(i=>i.id!==adjustItem.id?i:{
+        ...i,lastUpdated:today,
+        quantity:adjustMode==="add"?i.quantity+amt:Math.max(0,i.quantity-amt)
+      }));
+      setAdjustItem(null); setAdjustAmt("");
+      showToast(`${adjustItem.name} updated`);
+    };
+
+    const toggleSort = col => {
+      if (sortBy===col) setSortDir(d=>d==="asc"?"desc":"asc");
+      else { setSortBy(col); setSortDir("asc"); }
+    };
+
+    const Arr = ({col}) => (
+      <span style={{opacity:sortBy===col?1:.28,fontSize:10,marginLeft:3}}>
+        {sortBy===col?(sortDir==="asc"?"▲":"▼"):"⇅"}
+      </span>
+    );
+
+    const inp = {padding:"9px 13px",borderRadius:9,border:`1.5px solid ${B.border}`,fontFamily:"inherit",fontSize:14,color:B.text,background:B.bg,width:"100%",outline:"none"};
+    const btnP = {background:B.mid,color:"#fff",border:"none",borderRadius:10,padding:"11px 22px",fontFamily:"inherit",fontSize:14,fontWeight:600,cursor:"pointer"};
+
+    return (
+      <div style={{minHeight:"100vh",background:B.bg}}>
+
+        {/* Header */}
+        <div style={{background:`linear-gradient(135deg,${B.navyDark} 0%,${B.navy} 55%,${B.mid} 100%)`,padding:"28px 36px 26px",boxShadow:"0 4px 24px rgba(13,45,94,.4)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{background:"rgba(255,255,255,.13)",borderRadius:16,padding:"10px 14px",fontSize:30,lineHeight:1}}>🐻</div>
+              <div>
+                <h1 style={{margin:0,color:"#fff",fontSize:26,fontWeight:700,letterSpacing:.5}}>Three Bears Inn</h1>
+                <p style={{margin:0,color:B.paleMid,fontSize:12,letterSpacing:2.5,textTransform:"uppercase"}}>Inventory Management</p>
+              </div>
+            </div>
+            <button onClick={openAdd} style={{...btnP,background:"rgba(255,255,255,.18)",border:"1.5px solid rgba(255,255,255,.3)",display:"flex",alignItems:"center",gap:8}}>
+              ＋ Add Item
+            </button>
+          </div>
+          <div style={{display:"flex",gap:12,marginTop:22,flexWrap:"wrap"}}>
+            {[
+              {label:"Total Items",value:stats.total,   color:"#fff",   icon:"📦",f:"all"},
+              {label:"In Stock",   value:stats.ok,      color:"#86efac",icon:"✅",f:"ok"},
+              {label:"Running Low",value:stats.low,     color:"#fde68a",icon:"⚠️",f:"low"},
+              {label:"Reorder Now",value:stats.critical,color:"#fca5a5",icon:"🚨",f:"critical"},
+            ].map(s=>(
+              <div key={s.label} onClick={()=>setFilterStatus(s.f)}
+                style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.18)",borderRadius:14,padding:"12px 20px",cursor:"pointer",minWidth:100}}
+                onMouseOver={e=>e.currentTarget.style.background="rgba(255,255,255,.18)"}
+                onMouseOut={e=>e.currentTarget.style.background="rgba(255,255,255,.1)"}>
+                <div style={{fontSize:18}}>{s.icon}</div>
+                <div style={{color:s.color,fontSize:24,fontWeight:700,lineHeight:1.15,marginTop:2}}>{s.value}</div>
+                <div style={{color:"rgba(219,234,254,.7)",fontSize:11,textTransform:"uppercase",letterSpacing:1}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{padding:"24px 36px",maxWidth:1440,margin:"0 auto"}}>
+          <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search items, suppliers, or SKU…" style={{...inp,flex:1,minWidth:200}}/>
+            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{...inp,width:"auto",cursor:"pointer"}}>
+              <option value="all">All Statuses</option>
+              <option value="critical">🚨 Reorder Now</option>
+              <option value="low">⚠️ Running Low</option>
+              <option value="ok">✅ In Stock</option>
+            </select>
+          </div>
+
+          <div style={{display:"flex",gap:8,marginBottom:22,flexWrap:"wrap"}}>
+            {["All",...categories].map(cat=>(
+              <button key={cat} onClick={()=>setActiveCategory(cat)}
+                style={{padding:"7px 16px",borderRadius:20,border:`1.5px solid ${activeCategory===cat?B.mid:B.border}`,background:activeCategory===cat?B.mid:"#fff",color:activeCategory===cat?"#fff":B.textMid,fontFamily:"inherit",fontSize:13,cursor:"pointer",fontWeight:activeCategory===cat?700:400,display:"flex",alignItems:"center",gap:5}}>
+                {CAT_ICONS[cat]&&<span>{CAT_ICONS[cat]}</span>} {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Table */}
+          <div style={{background:"#fff",borderRadius:18,boxShadow:"0 4px 28px rgba(13,45,94,.09)",overflow:"hidden",border:`1px solid ${B.border}`}}>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:860}}>
+                <thead>
+                  <tr style={{background:`linear-gradient(90deg,${B.bg},#e4effe)`,borderBottom:`2px solid ${B.paleMid}`}}>
+                    {[
+                      {key:"name",    label:"Item Name"},
+                      {key:null,      label:"QR / SKU"},
+                      {key:"category",label:"Category"},
+                      {key:"quantity",label:"Qty"},
+                      {key:"par",     label:"Par"},
+                      {key:"reorder", label:"Reorder At"},
+                      {key:"supplier",label:"Supplier"},
+                      {key:null,      label:"Price"},
+                      {key:null,      label:"Status"},
+                      {key:null,      label:"Actions"},
+                    ].map(col=>(
+                      <th key={col.label} onClick={col.key?()=>toggleSort(col.key):undefined}
+                        style={{padding:"12px 14px",textAlign:"left",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,color:B.mid,cursor:col.key?"pointer":"default",whiteSpace:"nowrap",userSelect:"none"}}>
+                        {col.label}{col.key&&<Arr col={col.key}/>}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length===0&&(
+                    <tr><td colSpan={10} style={{textAlign:"center",padding:40,color:B.textLight,fontStyle:"italic"}}>No items found</td></tr>
+                  )}
+                  {filtered.map((item,idx)=>{
+                    const st=STATUS(item),sc=S_CLR[st],sku=skuOf(item.id);
+                    const isHighlighted = highlightId===item.id;
+                    return (
+                      <tr key={item.id}
+                        ref={el=>rowRefs.current[item.id]=el}
+                        className={isHighlighted?"highlight-row":""}
+                        style={{borderBottom:`1px solid ${B.bg}`,background:idx%2===0?"#fff":B.rowAlt,transition:"background .15s"}}
+                        onMouseOver={e=>{ if(!isHighlighted) e.currentTarget.style.background=B.pale; }}
+                        onMouseOut={e=>{ if(!isHighlighted) e.currentTarget.style.background=idx%2===0?"#fff":B.rowAlt; }}>
+                        <td style={{padding:"12px 14px"}}>
+                          <div style={{fontWeight:600,fontSize:14,color:B.navy}}>{item.name}</div>
+                          {item.notes&&<div style={{fontSize:11,color:B.textLight,marginTop:2}}>{item.notes}</div>}
+                        </td>
+                        <td style={{padding:"12px 14px"}}>
+                          <button onClick={()=>setQrItem(item)}
+                            style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:9,padding:"6px 12px",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:8,fontFamily:"inherit",transition:"all .13s"}}
+                            onMouseOver={e=>{e.currentTarget.style.background=B.pale;e.currentTarget.style.borderColor=B.mid;}}
+                            onMouseOut={e=>{e.currentTarget.style.background=B.bg;e.currentTarget.style.borderColor=B.border;}}>
+                            <span style={{fontSize:18,lineHeight:1}}>⬛</span>
+                            <div style={{textAlign:"left"}}>
+                              <div style={{fontSize:10,fontWeight:700,color:B.mid,letterSpacing:.5}}>{sku}</div>
+                              <div style={{fontSize:9,color:B.textLight}}>tap to scan</div>
+                            </div>
+                          </button>
+                        </td>
+                        <td style={{padding:"12px 14px"}}>
+                          <span style={{background:B.pale,color:B.mid,fontSize:12,padding:"3px 10px",borderRadius:20,whiteSpace:"nowrap",fontWeight:500}}>
+                            {CAT_ICONS[item.category]} {item.category}
+                          </span>
+                        </td>
+                        <td style={{padding:"12px 14px",textAlign:"center"}}>
+                          <span style={{fontWeight:700,fontSize:18,color:st==="critical"?"#dc2626":st==="low"?"#ca8a04":"#16a34a"}}>{item.quantity}</span>
+                          <span style={{fontSize:11,color:B.textLight,display:"block"}}>{item.unit}</span>
+                        </td>
+                        <td style={{padding:"12px 14px",textAlign:"center",color:B.textMid,fontWeight:500}}>{item.par}</td>
+                        <td style={{padding:"12px 14px",textAlign:"center",color:B.textMid,fontWeight:500}}>{item.reorder}</td>
+                        <td style={{padding:"12px 14px",fontSize:13,color:B.textMid}}>{item.supplier}</td>
+                        <td style={{padding:"12px 14px",minWidth:110}}>
+                          {item.priceEach&&(
+                            <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"3px 9px",marginBottom:item.priceBulk?4:0,whiteSpace:"nowrap"}}>
+                              <span style={{fontSize:10,color:"#166534",fontWeight:700}}>EA</span>
+                              <span style={{fontSize:13,fontWeight:700,color:"#166534"}}>{fmt$(item.priceEach)}</span>
+                              <span style={{fontSize:10,color:"#4ade80"}}>/{item.unit}</span>
+                            </div>
+                          )}
+                          {item.priceEach&&item.priceBulk&&<br/>}
+                          {item.priceBulk&&item.bulkQty&&(
+                            <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#eff6ff",border:`1px solid ${B.paleMid}`,borderRadius:8,padding:"3px 9px",whiteSpace:"nowrap"}}>
+                              <span style={{fontSize:10,color:B.mid,fontWeight:700}}>BULK</span>
+                              <span style={{fontSize:13,fontWeight:700,color:B.mid}}>{fmt$(item.priceBulk)}</span>
+                              <span style={{fontSize:10,color:B.sky}}>/{item.bulkQty}</span>
+                            </div>
+                          )}
+                          {!item.priceEach&&!item.priceBulk&&(
+                            <span style={{fontSize:11,color:B.textLight,fontStyle:"italic"}}>—</span>
+                          )}
+                        </td>
+                        <td style={{padding:"12px 14px"}}>
+                          <span style={{background:sc.badge,color:sc.text,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
+                            <span style={{width:7,height:7,borderRadius:"50%",background:sc.dot,display:"inline-block",flexShrink:0}}/>
+                            {S_LABEL[st]}
+                          </span>
+                        </td>
+                        <td style={{padding:"12px 14px"}}>
+                          <div style={{display:"flex",gap:5}}>
+                            <button onClick={()=>{setAdjustItem(item);setAdjustAmt("");setAdjustMode("add");}} title="Adjust"
+                              style={{background:B.pale,color:B.mid,border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:14,fontWeight:800}}>±</button>
+                            <button onClick={()=>openEdit(item)} title="Edit"
+                              style={{background:"#eff6ff",color:"#2563eb",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:12}}>✏️</button>
+                            <button onClick={()=>handleDelete(item.id)} title="Delete"
+                              style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{padding:"11px 20px",borderTop:`1px solid ${B.bg}`,background:B.bg,fontSize:12,color:B.textLight,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+              <span>Showing <strong>{filtered.length}</strong> of {inventory.length} items</span>
+              <span>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</span>
+            </div>
+          </div>
+
+          {/* Reorder Checklist */}
+          {(stats.critical>0||stats.low>0)&&(
+            <div style={{marginTop:28,background:"#fff",borderRadius:18,boxShadow:"0 4px 28px rgba(13,45,94,.09)",overflow:"hidden",border:`1px solid ${B.paleMid}`}}>
+              <div style={{background:`linear-gradient(90deg,${B.navyDark},${B.mid})`,padding:"14px 24px",display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:20}}>📋</span>
+                <h3 style={{margin:0,color:"#fff",fontSize:16,fontWeight:700}}>Reorder Checklist</h3>
+                <span style={{background:"rgba(255,255,255,.2)",color:"#fff",fontSize:12,borderRadius:20,padding:"2px 10px",marginLeft:"auto"}}>{stats.critical+stats.low} items</span>
+              </div>
+              <div style={{padding:"16px 24px",display:"flex",flexWrap:"wrap",gap:10}}>
+                {inventory.filter(i=>STATUS(i)!=="ok").sort((a,b)=>STATUS(a)==="critical"?-1:1).map(item=>{
+                  const st=STATUS(item),sc=S_CLR[st];
+                  return (
+                    <div key={item.id} style={{background:sc.bg,border:`1px solid ${sc.dot}30`,borderRadius:10,padding:"10px 16px",minWidth:220}}>
+                      <div style={{fontWeight:700,color:sc.text,fontSize:13}}>{item.name}</div>
+                      <div style={{color:sc.text,fontSize:12,opacity:.8,marginTop:2}}>Have {item.quantity} {item.unit} · Need {item.par} · {item.supplier}</div>
+                      {(item.priceEach||item.priceBulk)&&(()=>{
+                        const need=item.par-item.quantity;
+                        const eaCost=item.priceEach?parseFloat(item.priceEach)*need:null;
+                        const bulkCost=item.priceBulk&&item.bulkQty?Math.ceil(need/parseFloat(item.bulkQty))*parseFloat(item.priceBulk):null;
+                        return (
+                          <div style={{marginTop:5,display:"flex",gap:6,flexWrap:"wrap"}}>
+                            {eaCost&&<span style={{fontSize:11,background:"rgba(255,255,255,.6)",borderRadius:6,padding:"2px 7px",color:sc.text,fontWeight:700}}>EA: ${eaCost.toFixed(2)}</span>}
+                            {bulkCost&&<span style={{fontSize:11,background:"rgba(255,255,255,.6)",borderRadius:6,padding:"2px 7px",color:sc.text,fontWeight:700}}>Bulk: ${bulkCost.toFixed(2)}</span>}
+                          </div>
+                        );
+                      })()}
+                      <div style={{marginTop:5,background:sc.dot,height:3,borderRadius:3,width:`${Math.min(100,(item.quantity/item.par)*100)}%`}}/>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Add/Edit Modal */}
+        {modal&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(8,30,66,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,backdropFilter:"blur(4px)"}}>
+            <div style={{background:"#fff",borderRadius:20,padding:32,width:"min(96vw,560px)",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(13,45,94,.38)",animation:"modalIn .2s ease"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
+                <h2 style={{fontSize:20,fontWeight:700,color:B.navy}}>{modal.mode==="add"?"➕ Add Item":"✏️ Edit Item"}</h2>
+                <button onClick={()=>setModal(null)} style={{background:B.pale,border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",color:B.navy,fontWeight:700}}>✕</button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+                {[
+                  {label:"Item Name *",            key:"name",     type:"text",  full:true},
+                  {label:"Supplier",               key:"supplier", type:"text"},
+                  {label:"Unit (pcs, bottles…)",   key:"unit",     type:"text"},
+                  {label:"Quantity on Hand",       key:"quantity", type:"number"},
+                  {label:"Par Level (desired)",    key:"par",      type:"number"},
+                  {label:"Reorder Point (trigger)",key:"reorder",  type:"number"},
+                ].map(f=>(
+                  <div key={f.key} style={{gridColumn:f.full?"1/-1":"auto"}}>
+                    <label style={{fontSize:12,fontWeight:700,color:B.mid,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:5}}>{f.label}</label>
+                    <input type={f.type} value={form[f.key]}
+                      onChange={e=>setForm(p=>({...p,[f.key]:f.type==="number"?parseInt(e.target.value)||0:e.target.value}))}
+                      style={inp}/>
+                  </div>
+                ))}
+
+                {/* ── Pricing section ── */}
+                <div style={{gridColumn:"1/-1",borderTop:`1.5px solid ${B.border}`,paddingTop:14,marginTop:4}}>
+                  <div style={{fontSize:12,fontWeight:700,color:B.mid,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>💲 Pricing</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+                    <div>
+                      <label style={{fontSize:12,fontWeight:700,color:"#166534",textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:5}}>Individual Price / {form.unit||"unit"}</label>
+                      <div style={{position:"relative"}}>
+                        <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:B.textLight,fontSize:14}}>$</span>
+                        <input type="number" step="0.01" min="0" value={form.priceEach}
+                          onChange={e=>setForm(p=>({...p,priceEach:e.target.value}))}
+                          placeholder="0.00"
+                          style={{...inp,paddingLeft:26}}/>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{fontSize:12,fontWeight:700,color:B.mid,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:5}}>Bulk Price (total)</label>
+                      <div style={{position:"relative"}}>
+                        <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:B.textLight,fontSize:14}}>$</span>
+                        <input type="number" step="0.01" min="0" value={form.priceBulk}
+                          onChange={e=>setForm(p=>({...p,priceBulk:e.target.value}))}
+                          placeholder="0.00"
+                          style={{...inp,paddingLeft:26}}/>
+                      </div>
+                    </div>
+                    <div style={{gridColumn:"1/-1"}}>
+                      <label style={{fontSize:12,fontWeight:700,color:B.mid,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:5}}>Units per Bulk Order</label>
+                      <input type="number" min="1" value={form.bulkQty}
+                        onChange={e=>setForm(p=>({...p,bulkQty:e.target.value}))}
+                        placeholder="e.g. 100 bottles per case"
+                        style={inp}/>
+                      {form.priceBulk&&form.bulkQty&&(
+                        <div style={{marginTop:6,fontSize:12,color:B.textMid,background:B.bg,borderRadius:8,padding:"6px 10px",border:`1px solid ${B.border}`}}>
+                          ≈ <strong>${(parseFloat(form.priceBulk)/parseFloat(form.bulkQty)).toFixed(2)}</strong> per {form.unit||"unit"} when buying in bulk
+                          {form.priceEach&&parseFloat(form.priceEach)>0&&(
+                            <span style={{color:"#166534",fontWeight:600}}> · saves ${(parseFloat(form.priceEach)-(parseFloat(form.priceBulk)/parseFloat(form.bulkQty))).toFixed(2)} ea</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{gridColumn:"1/-1"}}>
+                  <label style={{fontSize:12,fontWeight:700,color:B.mid,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:5}}>Category</label>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <select value={form.category} onChange={e=>setForm(p=>({...p,category:e.target.value}))} style={{...inp,flex:1}}>
+                      {categories.map(c=><option key={c}>{c}</option>)}
+                    </select>
+                    <button type="button" onClick={()=>{setShowNewCat(v=>!v);setNewCatValue("");}}
+                      title="Add a new category"
+                      style={{flexShrink:0,background:showNewCat?B.mid:B.pale,color:showNewCat?"#fff":B.mid,border:`1.5px solid ${showNewCat?B.mid:B.border}`,borderRadius:9,padding:"9px 14px",cursor:"pointer",fontWeight:700,fontSize:16,lineHeight:1,transition:"all .15s"}}>
+                      ＋
+                    </button>
+                  </div>
+
+                  {/* Inline new-category form */}
+                  {showNewCat&&(
+                    <div style={{marginTop:10,background:B.bg,border:`1.5px solid ${B.border}`,borderRadius:12,padding:"14px 16px"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:B.mid,marginBottom:8}}>New Category Name</div>
+                      <div style={{display:"flex",gap:8}}>
+                        <input autoFocus value={newCatValue}
+                          onChange={e=>setNewCatValue(e.target.value)}
+                          onKeyDown={e=>{if(e.key==="Enter")addCategory();if(e.key==="Escape"){setShowNewCat(false);setNewCatValue("");}}}
+                          placeholder="e.g. Outdoor Furniture"
+                          style={{...inp,flex:1}}/>
+                        <button type="button" onClick={addCategory}
+                          disabled={!newCatValue.trim()||categories.includes(newCatValue.trim())}
+                          style={{background:newCatValue.trim()&&!categories.includes(newCatValue.trim())?B.mid:"#e2e8f0",color:newCatValue.trim()&&!categories.includes(newCatValue.trim())?"#fff":"#94a3b8",border:"none",borderRadius:9,padding:"9px 16px",fontFamily:"inherit",fontSize:13,fontWeight:700,cursor:newCatValue.trim()&&!categories.includes(newCatValue.trim())?"pointer":"default",transition:"all .15s"}}>
+                          Add
+                        </button>
+                        <button type="button" onClick={()=>{setShowNewCat(false);setNewCatValue("");}}
+                          style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:9,padding:"9px 12px",cursor:"pointer",fontSize:13,fontWeight:700}}>✕</button>
+                      </div>
+                      {newCatValue.trim()&&categories.includes(newCatValue.trim())&&(
+                        <div style={{marginTop:6,fontSize:12,color:"#dc2626"}}>That category already exists.</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Custom categories (deletable) */}
+                  {categories.filter(c=>!BASE_CATEGORIES.includes(c)).length>0&&(
+                    <div style={{marginTop:8,display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {categories.filter(c=>!BASE_CATEGORIES.includes(c)).map(c=>(
+                        <span key={c} style={{display:"inline-flex",alignItems:"center",gap:5,background:"#eff6ff",border:`1px solid ${B.paleMid}`,borderRadius:20,padding:"3px 10px",fontSize:12,color:B.mid}}>
+                          {c}
+                          <button type="button" onClick={()=>deleteCategory(c)}
+                            title={`Remove "${c}"`}
+                            style={{background:"none",border:"none",cursor:"pointer",color:B.sky,fontWeight:700,fontSize:14,lineHeight:1,padding:"0 2px"}}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={{gridColumn:"1/-1"}}>
+                  <label style={{fontSize:12,fontWeight:700,color:B.mid,textTransform:"uppercase",letterSpacing:.8,display:"block",marginBottom:5}}>Notes</label>
+                  <textarea value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} rows={2} style={{...inp,resize:"vertical"}}/>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,marginTop:22,justifyContent:"flex-end"}}>
+                {modal.mode==="edit"&&<button onClick={()=>handleDelete(form.id)} style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:9,padding:"10px 18px",fontFamily:"inherit",fontSize:14,cursor:"pointer",fontWeight:600}}>Delete</button>}
+                <button onClick={()=>setModal(null)} style={{background:B.pale,color:B.navy,border:"none",borderRadius:9,padding:"10px 18px",fontFamily:"inherit",fontSize:14,cursor:"pointer"}}>Cancel</button>
+                <button onClick={handleSave} style={{...btnP,borderRadius:9,padding:"10px 22px"}}>{modal.mode==="add"?"Add Item":"Save Changes"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Adjust Modal */}
+        {adjustItem&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(8,30,66,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,backdropFilter:"blur(4px)"}}>
+            <div style={{background:"#fff",borderRadius:20,padding:32,width:"min(96vw,400px)",boxShadow:"0 24px 64px rgba(13,45,94,.38)",animation:"modalIn .2s ease"}}>
+              <h2 style={{fontSize:19,fontWeight:700,color:B.navy,marginBottom:6}}>Adjust Quantity</h2>
+              <p style={{fontSize:14,color:B.textMid,marginBottom:22}}>{adjustItem.name} — currently <strong>{adjustItem.quantity}</strong> {adjustItem.unit}</p>
+              <div style={{display:"flex",gap:8,marginBottom:18}}>
+                {["add","remove"].map(m=>(
+                  <button key={m} onClick={()=>setAdjustMode(m)}
+                    style={{flex:1,padding:10,borderRadius:9,border:`1.5px solid ${adjustMode===m?B.mid:B.border}`,background:adjustMode===m?B.mid:"#fff",color:adjustMode===m?"#fff":B.textMid,fontFamily:"inherit",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                    {m==="add"?"＋ Restock":"－ Use / Discard"}
+                  </button>
+                ))}
+              </div>
+              <input type="number" min="1" value={adjustAmt} onChange={e=>setAdjustAmt(e.target.value)} placeholder="Enter amount…" autoFocus style={{...inp,fontSize:16}}/>
+              <div style={{display:"flex",gap:10,marginTop:18}}>
+                <button onClick={()=>setAdjustItem(null)} style={{flex:1,background:B.pale,color:B.navy,border:"none",borderRadius:9,padding:11,fontFamily:"inherit",cursor:"pointer"}}>Cancel</button>
+                <button onClick={handleAdjust} style={{flex:2,...btnP,borderRadius:9,padding:11}}>Confirm {adjustMode==="add"?"Restock":"Usage"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* QR Modal */}
+        {qrItem&&<QRModal item={qrItem} onClose={()=>setQrItem(null)}/>}
+
+        {/* Toast */}
+        {toast&&(
+          <div style={{position:"fixed",bottom:28,right:28,background:toast.type==="error"?"#dc2626":B.navy,color:"#fff",padding:"13px 22px",borderRadius:12,fontSize:14,fontWeight:600,boxShadow:"0 6px 24px rgba(0,0,0,.25)",zIndex:300,animation:"fadeIn .2s ease"}}>
+            {toast.type==="error"?"🗑️":"✓"} {toast.msg}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
