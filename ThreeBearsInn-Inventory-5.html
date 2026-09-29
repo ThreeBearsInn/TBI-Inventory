@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three Bears Inn — Inventory</title>
+
+  <!-- PWA / iPhone home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TBI Inventory" />
+  <meta name="theme-color" content="#5b9bd5" />
+  <link rel="apple-touch-icon" id="apple-touch-icon" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Pineapple Demo (brand wordmark font — must be hosted or installed) -->
+  <style>
+    @font-face {
+      font-family: 'Pineapple Demo';
+      src: local('Pineapple Demo'), local('PineappleDemo');
+      font-display: swap;
+    }
+  </style>
+
+  <!-- React 18 + Babel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <!-- JsBarcode -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Firebase 9 compat (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <style>
+    :root {
+      --sky:       #5b9bd5;
+      --sky-light: #8dc0e8;
+      --sky-pale:  #d6eaf8;
+      --cream:     #fdf6ec;
+      --brown:     #7b4f2e;
+      --tan:       #c9a87c;
+      --deep:      #1a3a5c;
+      --green:     #4a7c59;
+      --red:       #c0392b;
+      --amber:     #e67e22;
+      --white:     #ffffff;
+      --gray50:    #f8fafc;
+      --gray100:   #f1f5f9;
+      --gray200:   #e2e8f0;
+      --gray400:   #94a3b8;
+      --gray600:   #475569;
+      --gray800:   #1e293b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--gray800);
+      min-height: 100vh;
+    }
+
+    /* ── Login Screen ── */
+    .login-page {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #3a7fc1 0%, #5b9bd5 45%, #8dc0e8 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    /* decorative circles */
+    .login-page::before, .login-page::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      opacity: .12;
+      background: var(--white);
+    }
+    .login-page::before { width: 500px; height: 500px; top: -160px; right: -120px; }
+    .login-page::after  { width: 340px; height: 340px; bottom: -120px; left: -80px; }
+
+    .login-card {
+      background: var(--white);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(26,58,92,.30), 0 4px 16px rgba(0,0,0,.10);
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+    .login-header {
+      background: var(--sky);
+      padding: 36px 32px 28px;
+      text-align: center;
+      position: relative;
+    }
+    .login-bear {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.18));
+    }
+    .login-inn-name {
+      font-family: 'Pineapple Demo', 'Cormorant Garamond', Georgia, serif;
+      font-size: 2rem;
+      color: var(--white);
+      letter-spacing: 1px;
+      line-height: 1.1;
+      text-shadow: 0 1px 4px rgba(0,0,0,.18);
+    }
+    .login-subtitle {
+      font-family: 'Nunito', sans-serif;
+      font-size: .8rem;
+      color: rgba(255,255,255,.82);
+      margin-top: 6px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .login-body {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .login-welcome {
+      text-align: center;
+      font-size: .9rem;
+      color: var(--gray600);
+      font-weight: 600;
+    }
+    .login-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .login-field label {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--gray600);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .login-field input {
+      padding: 11px 14px;
+      border: 2px solid var(--gray200);
+      border-radius: 10px;
+      font-family: 'Nunito', sans-serif;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+      color: var(--gray800);
+    }
+    .login-field input:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 3px rgba(91,155,213,.18);
+    }
+    .login-btn {
+      background: var(--sky);
+      color: var(--white);
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 2px 8px rgba(91,155,213,.35);
+      margin-top: 4px;
+    }
+    .login-btn:hover   { background: #4a8bc4; box-shadow: 0 4px 14px rgba(91,155,213,.45); }
+    .login-btn:active  { transform: scale(.98); }
+    .login-btn:disabled{ background: var(--gray400); box-shadow: none; cursor: not-allowed; }
+    .login-error {
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: .83rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .login-footer {
+      text-align: center;
+      font-size: .72rem;
+      color: var(--gray400);
+      padding: 0 32px 24px;
+    }
+    .login-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--white);
+      font-size: .9rem;
+      font-weight: 600;
+    }
+    .spin {
+      width: 22px; height: 22px;
+      border: 3px solid rgba(255,255,255,.35);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App Header ── */
+    .hdr {
+      background: var(--sky);
+      color: var(--white);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .hdr-title {
+      font-family: 'Pineapple Demo', 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      letter-spacing: .5px;
+    }
+    .hdr-sub   { font-size:.75rem; opacity:.85; margin-top:1px; font-family:'Nunito',sans-serif; }
+    .hdr-right { display:flex; gap:8px; align-items:center; }
+    .sync-dot  { width:9px; height:9px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 2px rgba(74,222,128,.4); }
+    .sync-dot.off { background:var(--amber); box-shadow:0 0 0 2px rgba(230,126,34,.35); }
+    .sync-label{ font-size:.7rem; opacity:.85; }
+    .logout-btn {
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.35);
+      color: var(--white);
+      border-radius: 7px;
+      padding: 5px 11px;
+      font-family: 'Nunito', sans-serif;
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,.28); }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none; cursor: pointer; border-radius: 8px;
+      font-family: 'Nunito', sans-serif; font-weight: 600;
+      padding: 8px 16px; font-size: .85rem; transition: opacity .15s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-sky    { background: var(--sky);   color: #fff; }
+    .btn-deep   { background: var(--deep);  color: #fff; }
+    .btn-ghost  { background: transparent; border: 1.5px solid var(--sky); color: var(--sky); }
+    .btn-red    { background: var(--red);   color: #fff; }
+    .btn-sm     { padding: 5px 11px; font-size: .78rem; border-radius: 6px; }
+    .btn:hover  { opacity: .88; }
+    /* ── Toolbar ── */
+    .toolbar {
+      padding: 14px 20px;
+      background: var(--white);
+      border-bottom: 1px solid var(--gray200);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-wrap { position: relative; flex: 1; min-width: 180px; }
+    .search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--gray400); }
+    .search-input {
+      width:100%; padding:8px 10px 8px 34px;
+      border:1.5px solid var(--gray200); border-radius:8px;
+      font-family:'Nunito',sans-serif; font-size:.88rem;
+      outline:none; transition:border-color .15s;
+    }
+    .search-input:focus { border-color:var(--sky); }
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; gap: 4px; flex-wrap: wrap;
+      padding: 10px 20px;
+      background: var(--gray50);
+      border-bottom: 1px solid var(--gray200);
+    }
+    .tab {
+      padding: 5px 14px; border-radius: 20px;
+      font-size: .8rem; font-weight: 600; cursor: pointer;
+      border: 1.5px solid transparent;
+      background: var(--white); color: var(--gray600);
+      transition: all .15s;
+    }
+    .tab.active { background: var(--sky); color: #fff; border-color: var(--sky); }
+    .tab:hover:not(.active) { border-color: var(--sky-light); color: var(--sky); }
+    /* ── Stats bar ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px,1fr));
+      gap: 10px;
+      padding: 14px 20px;
+    }
+    .stat-card {
+      background: var(--white); border-radius: 10px;
+      padding: 12px 16px; border-left: 4px solid var(--sky);
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .stat-card.red  { border-left-color: var(--red); }
+    .stat-card.amber{ border-left-color: var(--amber); }
+    .stat-card.green{ border-left-color: var(--green); }
+    .stat-val   { font-size:1.6rem; font-weight:700; color:var(--deep); line-height:1; }
+    .stat-label { font-size:.72rem; color:var(--gray600); margin-top:3px; }
+    /* ── Table ── */
+    .tbl-wrap { padding: 0 20px 30px; overflow-x: auto; }
+    table { width:100%; border-collapse:collapse; background:var(--white); border-radius:12px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.08); }
+    th {
+      background: var(--deep); color: var(--white);
+      padding: 11px 12px; text-align:left;
+      font-size: .78rem; font-weight:600; letter-spacing:.4px; text-transform:uppercase;
+    }
+    td { padding:10px 12px; border-bottom:1px solid var(--gray100); font-size:.84rem; vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background: var(--sky-pale); }
+    tr.highlight td { animation: pulse-row 2.5s ease-out; }
+    @keyframes pulse-row {
+      0%   { background: #bde0fa; }
+      60%  { background: #e8f4fd; }
+      100% { background: transparent; }
+    }
+    /* ── Badges ── */
+    .badge {
+      display:inline-flex; align-items:center; gap:3px;
+      padding:2px 8px; border-radius:20px;
+      font-size:.72rem; font-weight:700;
+    }
+    .badge-ok     { background:#dcfce7; color:#166534; }
+    .badge-low    { background:#fef9c3; color:#854d0e; }
+    .badge-crit   { background:#fee2e2; color:#991b1b; }
+    .badge-ea     { background:#d1fae5; color:#065f46; }
+    .badge-bulk   { background:#dbeafe; color:#1e40af; }
+    .badge-cat    { background:var(--sky-pale); color:var(--deep); font-size:.7rem; padding:2px 7px; }
+    /* ── Modal ── */
+    .overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      display:flex; align-items:center; justify-content:center;
+      z-index:200; padding:20px;
+    }
+    .modal {
+      background:var(--white); border-radius:16px;
+      width:100%; max-width:520px;
+      max-height:90vh; overflow-y:auto;
+      box-shadow:0 8px 40px rgba(0,0,0,.22);
+    }
+    .modal-hdr {
+      background:var(--sky); color:#fff;
+      padding:16px 20px; border-radius:16px 16px 0 0;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .modal-hdr h2 { font-family:'Cormorant Garamond',serif; font-size:1.25rem; font-weight:700; }
+    .modal-body { padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .form-group { display:flex; flex-direction:column; gap:5px; }
+    .form-group label { font-size:.78rem; font-weight:700; color:var(--gray600); text-transform:uppercase; letter-spacing:.4px; }
+    .form-group input, .form-group select, .form-group textarea {
+      padding:9px 11px; border:1.5px solid var(--gray200); border-radius:8px;
+      font-family:'Nunito',sans-serif; font-size:.88rem; outline:none;
+      transition:border-color .15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--sky); }
+    .price-section { background:var(--gray50); border-radius:10px; padding:14px; border:1px solid var(--gray200); }
+    .price-section h4 { font-size:.8rem; font-weight:700; color:var(--gray600); text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px; }
+    .savings-pill { background:var(--sky-pale); color:var(--deep); border-radius:8px; padding:6px 12px; font-size:.8rem; font-weight:600; margin-top:4px; }
+    .modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid var(--gray200); }
+    /* ── QR Modal ── */
+    .qr-card { background:var(--gray50); border-radius:12px; padding:20px; text-align:center; }
+    .qr-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:700; color:var(--deep); margin-bottom:4px; }
+    .qr-card .sku { font-size:.78rem; color:var(--gray600); margin-bottom:14px; font-weight:600; }
+    .qr-url { font-size:.7rem; color:var(--gray400); word-break:break-all; margin-top:10px; }
+    /* ── Reorder Modal ── */
+    .reorder-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--gray200); }
+    .reorder-item:last-child { border-bottom:none; }
+    /* ── Custom category pills ── */
+    .cat-pills { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .cat-pill { background:var(--sky-pale); color:var(--deep); border-radius:20px; padding:4px 10px; font-size:.75rem; font-weight:600; display:flex; align-items:center; gap:5px; }
+    .cat-pill button { background:none; border:none; cursor:pointer; color:var(--red); font-size:.85rem; line-height:1; padding:0 2px; }
+    .cat-add-row { display:flex; gap:6px; margin-top:6px; }
+    .cat-add-row input { flex:1; padding:6px 10px; border:1.5px solid var(--gray200); border-radius:8px; font-size:.82rem; font-family:'Nunito',sans-serif; outline:none; }
+    .cat-add-row input:focus { border-color:var(--sky); }
+    /* ── Firebase setup notice ── */
+    .fb-notice {
+      margin:14px 20px 0; padding:14px 18px;
+      background:#fff8e1; border:1.5px solid #fbbf24; border-radius:10px;
+      font-size:.82rem; color:#78350f; line-height:1.6;
+    }
+    .fb-notice strong { display:block; font-size:.88rem; margin-bottom:4px; }
+    @media print {
+      body * { visibility:hidden; }
+      .print-area, .print-area * { visibility:visible; }
+      .print-area { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════
+     FIREBASE SETUP INSTRUCTIONS
+     ────────────────────────────────────────────────────
+     1. Go to https://console.firebase.google.com
+     2. Click "Add project" → name it "Three Bears Inn"
+     3. Disable Google Analytics (not needed) → Create project
+     4. In the left sidebar click "Realtime Database"
+     5. Click "Create Database" → choose US location → Start in TEST mode
+     6. In the left sidebar click "Authentication" → Get started → Email/Password → Enable → Save
+     7. Under Authentication → Users tab → Add user → enter your email + a password → Add user
+     8. Click the gear ⚙ → Project settings → "Your apps" → Web (</>)
+     9. Register the app → copy the firebaseConfig object
+     10. Paste it below replacing the placeholder values
+     11. In Realtime Database → Rules tab, replace the rules with:
+         { "rules": { ".read": "auth != null", ".write": "auth != null" } }
+         then click Publish.
+     12. Done! Data syncs across all devices. Only logged-in staff can access it.
+══════════════════════════════════════════════════════ -->
+
+<div id="root"></div>
+
+<script>
+// ── PWA: generate bear icon via Canvas ──────────────────────────────────────
+(function(){
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 180;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#5b9bd5';
+    ctx.beginPath(); ctx.arc(90,90,90,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#7b4f2e';
+    ctx.beginPath(); ctx.arc(90,95,48,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(54,52,20,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(126,52,20,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c9a87c';
+    ctx.beginPath(); ctx.arc(54,52,11,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(126,52,11,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c9a87c';
+    ctx.beginPath(); ctx.ellipse(90,108,20,14,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#3d1f10';
+    ctx.beginPath(); ctx.ellipse(90,100,8,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a0a00';
+    ctx.beginPath(); ctx.arc(74,85,5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(106,85,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(76,83,2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(108,83,2,0,Math.PI*2); ctx.fill();
+    const dataUrl = c.toDataURL('image/png');
+    document.getElementById('apple-touch-icon').href = dataUrl;
+    const fi = document.createElement('link');
+    fi.rel='icon'; fi.href=dataUrl; fi.type='image/png';
+    document.head.appendChild(fi);
+    const manifest = {
+      name:'Three Bears Inn Inventory', short_name:'TBI Inventory',
+      display:'standalone', start_url:'https://threebearsinn.github.io/',
+      background_color:'#5b9bd5', theme_color:'#5b9bd5',
+      icons:[{src:dataUrl, sizes:'180x180', type:'image/png'}]
+    };
+    const ml = document.createElement('link');
+    ml.rel='manifest';
+    ml.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/json'}));
+    document.head.appendChild(ml);
+  } catch(e){ console.warn('PWA icon generation skipped',e); }
+})();
+</script>
+
+<script>
+// ── FIREBASE CONFIG ──────────────────────────────────────────────────────────
+// Replace these values with your own from Firebase console → Project settings → Your apps
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAPcb12HC5wrM2TlgpjNB86Cazs1a-_6I8",
+  authDomain:        "three-bears-inn-c6237.firebaseapp.com",
+  databaseURL:       "https://three-bears-inn-c6237-default-rtdb.firebaseio.com",
+  projectId:         "three-bears-inn-c6237",
+  storageBucket:     "three-bears-inn-c6237.firebasestorage.app",
+  messagingSenderId: "264413189433",
+  appId:             "1:264413189433:web:39b1890d0c975b76d4c4e8"
+};
+
+let db = null, auth = null, FB_READY = false;
+
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE')) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db   = firebase.database();
+      auth = firebase.auth();
+      FB_READY = true;
+      console.log('✅ Firebase connected');
+    } else {
+      console.log('⚠️ Firebase not configured — using localStorage');
+    }
+  } catch(e) { console.warn('Firebase init failed', e); }
+}
+initFirebase();
+</script>
+
+<script type="text/babel">
+const GITHUB_DOMAIN  = "https://threebearsinn.github.io";
+const BASE_CATEGORIES= ["Linens","Towels","Cleaning Supplies","Toiletries","Kitchen","Maintenance","Guest Amenities"];
+const CAT_STORE      = "tbi-categories-v1";
+const LOCAL_STORE    = "tbi-inv-v3";
+const EMPTY = { name:"", category:"Linens", unit:"pcs", quantity:0, par:0, reorder:0, supplier:"", notes:"", priceEach:"", priceBulk:"", bulkQty:"" };
+const skuOf = id => `TBI-${String(id).padStart(5,"0")}`;
+const fmt$  = v  => v ? `$${parseFloat(v).toFixed(2)}` : null;
+
+const SEED = [
+  {id:1, name:"Queen Sheet Set",       category:"Linens",           unit:"sets", quantity:24, par:30, reorder:15, supplier:"American Textile",   priceEach:"89.99",  priceBulk:"74.99",  bulkQty:"6",  notes:"400TC white percale"},
+  {id:2, name:"King Sheet Set",        category:"Linens",           unit:"sets", quantity:12, par:18, reorder:8,  supplier:"American Textile",   priceEach:"109.99", priceBulk:"94.99",  bulkQty:"4",  notes:"400TC white percale"},
+  {id:3, name:"Pillow Cases (Std)",    category:"Linens",           unit:"pcs",  quantity:48, par:60, reorder:30, supplier:"American Textile",   priceEach:"12.99",  priceBulk:"9.99",   bulkQty:"12", notes:"White standard"},
+  {id:4, name:"Duvet Insert Queen",    category:"Linens",           unit:"pcs",  quantity:10, par:14, reorder:6,  supplier:"Pacific Coast",      priceEach:"79.99",  priceBulk:"",       bulkQty:"",   notes:"Hypoallergenic fill"},
+  {id:5, name:"Duvet Cover Queen",     category:"Linens",           unit:"pcs",  quantity:16, par:18, reorder:8,  supplier:"American Textile",   priceEach:"59.99",  priceBulk:"49.99",  bulkQty:"4",  notes:"White duvet cover"},
+  {id:6, name:"Bath Towel",            category:"Towels",           unit:"pcs",  quantity:40, par:50, reorder:25, supplier:"1888 Mills",         priceEach:"14.99",  priceBulk:"11.99",  bulkQty:"12", notes:"White 27x54"},
+  {id:7, name:"Hand Towel",            category:"Towels",           unit:"pcs",  quantity:36, par:48, reorder:24, supplier:"1888 Mills",         priceEach:"8.99",   priceBulk:"6.99",   bulkQty:"12", notes:"White 16x28"},
+  {id:8, name:"Washcloth",             category:"Towels",           unit:"pcs",  quantity:60, par:72, reorder:36, supplier:"1888 Mills",         priceEach:"4.99",   priceBulk:"3.49",   bulkQty:"24", notes:"White 13x13"},
+  {id:9, name:"Bath Mat",              category:"Towels",           unit:"pcs",  quantity:18, par:20, reorder:10, supplier:"1888 Mills",         priceEach:"19.99",  priceBulk:"",       bulkQty:"",   notes:"Non-slip white"},
+  {id:10,name:"Pool Towel",            category:"Towels",           unit:"pcs",  quantity:8,  par:20, reorder:10, supplier:"1888 Mills",         priceEach:"24.99",  priceBulk:"19.99",  bulkQty:"6",  notes:"Striped blue/white"},
+  {id:11,name:"All-Purpose Cleaner",   category:"Cleaning Supplies",unit:"btl",  quantity:24, par:24, reorder:12, supplier:"Sysco",              priceEach:"5.99",   priceBulk:"4.49",   bulkQty:"6",  notes:"Spray 32oz"},
+  {id:12,name:"Glass Cleaner",         category:"Cleaning Supplies",unit:"btl",  quantity:12, par:12, reorder:6,  supplier:"Sysco",              priceEach:"4.99",   priceBulk:"3.99",   bulkQty:"6",  notes:"Streak-free formula"},
+  {id:13,name:"Disinfectant Wipes",    category:"Cleaning Supplies",unit:"cans", quantity:18, par:24, reorder:12, supplier:"Sysco",              priceEach:"8.99",   priceBulk:"6.99",   bulkQty:"4",  notes:"75ct Lysol"},
+  {id:14,name:"Laundry Detergent",     category:"Cleaning Supplies",unit:"jug",  quantity:6,  par:8,  reorder:4,  supplier:"Sysco",              priceEach:"29.99",  priceBulk:"24.99",  bulkQty:"4",  notes:"HE 5gal concentrate"},
+  {id:15,name:"Fabric Softener",       category:"Cleaning Supplies",unit:"jug",  quantity:4,  par:6,  reorder:3,  supplier:"Sysco",              priceEach:"22.99",  priceBulk:"",       bulkQty:"",   notes:"Lavender scent"},
+  {id:16,name:"Mop Heads",             category:"Cleaning Supplies",unit:"pcs",  quantity:4,  par:6,  reorder:3,  supplier:"Sysco",              priceEach:"12.99",  priceBulk:"9.99",   bulkQty:"4",  notes:"Microfiber looped"},
+  {id:17,name:"Trash Bags 13gal",      category:"Cleaning Supplies",unit:"rolls",quantity:12, par:12, reorder:6,  supplier:"Sysco",              priceEach:"18.99",  priceBulk:"14.99",  bulkQty:"4",  notes:"Tall kitchen bags"},
+  {id:18,name:"Shampoo (travel)",      category:"Toiletries",       unit:"pcs",  quantity:120,par:150,reorder:75, supplier:"Gilchrist & Soames",priceEach:"1.29",   priceBulk:"0.99",   bulkQty:"48", notes:"1.0oz bottles"},
+  {id:19,name:"Conditioner (travel)",  category:"Toiletries",       unit:"pcs",  quantity:90, par:150,reorder:75, supplier:"Gilchrist & Soames",priceEach:"1.29",   priceBulk:"0.99",   bulkQty:"48", notes:"1.0oz bottles"},
+  {id:20,name:"Body Wash (travel)",    category:"Toiletries",       unit:"pcs",  quantity:100,par:150,reorder:75, supplier:"Gilchrist & Soames",priceEach:"1.49",   priceBulk:"1.15",   bulkQty:"48", notes:"1.5oz bottles"},
+  {id:21,name:"Hand Lotion (travel)",  category:"Toiletries",       unit:"pcs",  quantity:80, par:120,reorder:60, supplier:"Gilchrist & Soames",priceEach:"1.49",   priceBulk:"1.15",   bulkQty:"48", notes:"1.0oz tubes"},
+  {id:22,name:"Soap Bar",              category:"Toiletries",       unit:"pcs",  quantity:150,par:200,reorder:100,supplier:"Gilchrist & Soames",priceEach:"0.89",   priceBulk:"0.65",   bulkQty:"100",notes:"1.5oz wrapped"},
+  {id:23,name:"Dental Kit",            category:"Toiletries",       unit:"pcs",  quantity:30, par:40, reorder:20, supplier:"Gilchrist & Soames",priceEach:"1.99",   priceBulk:"1.49",   bulkQty:"24", notes:"Brush + toothpaste"},
+  {id:24,name:"Shower Cap",            category:"Toiletries",       unit:"pcs",  quantity:60, par:80, reorder:40, supplier:"Gilchrist & Soames",priceEach:"0.49",   priceBulk:"0.35",   bulkQty:"100",notes:"Clear elastic"},
+  {id:25,name:"Coffee Pods",           category:"Kitchen",          unit:"pcs",  quantity:200,par:300,reorder:150,supplier:"Idaho Mountain Roast",priceEach:"0.79",  priceBulk:"0.59",   bulkQty:"100",notes:"Medium roast K-Cups"},
+  {id:26,name:"Creamer Singles",       category:"Kitchen",          unit:"pcs",  quantity:300,par:400,reorder:200,supplier:"Sysco",              priceEach:"0.15",   priceBulk:"0.10",   bulkQty:"200",notes:"Non-dairy liquid"},
+  {id:27,name:"Sugar Packets",         category:"Kitchen",          unit:"pcs",  quantity:500,par:600,reorder:300,supplier:"Sysco",              priceEach:"0.05",   priceBulk:"0.03",   bulkQty:"500",notes:"Individual 4g packs"},
+  {id:28,name:"Tea Assortment",        category:"Kitchen",          unit:"boxes",quantity:10, par:15, reorder:8,  supplier:"Bigelow",            priceEach:"8.99",   priceBulk:"6.99",   bulkQty:"4",  notes:"28ct variety pack"},
+  {id:29,name:"Paper Cups 8oz",        category:"Kitchen",          unit:"sleeves",quantity:8,par:12, reorder:6,  supplier:"Sysco",              priceEach:"6.99",   priceBulk:"5.49",   bulkQty:"4",  notes:"50ct sleeve"},
+  {id:30,name:"Stir Sticks",           category:"Kitchen",          unit:"boxes",quantity:5,  par:8,  reorder:4,  supplier:"Sysco",              priceEach:"3.99",   priceBulk:"",       bulkQty:"",   notes:"500ct box"},
+  {id:31,name:"AA Batteries",          category:"Maintenance",      unit:"pcs",  quantity:24, par:36, reorder:18, supplier:"Costco",             priceEach:"1.50",   priceBulk:"0.99",   bulkQty:"24", notes:"Energizer bulk"},
+  {id:32,name:"9V Batteries",          category:"Maintenance",      unit:"pcs",  quantity:12, par:16, reorder:8,  supplier:"Costco",             priceEach:"3.99",   priceBulk:"2.99",   bulkQty:"6",  notes:"Smoke detector batteries"},
+  {id:33,name:"LED Bulbs 60W",         category:"Maintenance",      unit:"pcs",  quantity:18, par:24, reorder:12, supplier:"Home Depot",         priceEach:"4.99",   priceBulk:"3.49",   bulkQty:"4",  notes:"Warm white E26"},
+  {id:34,name:"Plunger",               category:"Maintenance",      unit:"pcs",  quantity:5,  par:8,  reorder:4,  supplier:"Home Depot",         priceEach:"14.99",  priceBulk:"",       bulkQty:"",   notes:"Heavy-duty flange"},
+  {id:35,name:"WD-40 Spray",           category:"Maintenance",      unit:"cans", quantity:3,  par:4,  reorder:2,  supplier:"Home Depot",         priceEach:"8.99",   priceBulk:"",       bulkQty:"",   notes:"11oz spray can"},
+  {id:36,name:"Welcome Treats",        category:"Guest Amenities",  unit:"pcs",  quantity:40, par:50, reorder:25, supplier:"Idaho Candy Co.",    priceEach:"3.50",   priceBulk:"2.75",   bulkQty:"12", notes:"Local chocolates"},
+  {id:37,name:"Do Not Disturb Signs",  category:"Guest Amenities",  unit:"pcs",  quantity:12, par:12, reorder:6,  supplier:"Amazon",             priceEach:"2.99",   priceBulk:"",       bulkQty:"",   notes:"Card stock, double-sided"},
+  {id:38,name:"Luggage Rack Straps",   category:"Maintenance",      unit:"pcs",  quantity:8,  par:10, reorder:5,  supplier:"Amazon",             priceEach:"9.99",   priceBulk:"",       bulkQty:"",   notes:"Replacement nylon straps"},
+  {id:39,name:"Hand Sanitizer 8oz",    category:"Guest Amenities",  unit:"btl",  quantity:15, par:20, reorder:10, supplier:"Sysco",              priceEach:"4.99",   priceBulk:"3.49",   bulkQty:"6",  notes:"Desk/room dispensers"},
+  {id:40,name:"Local Trail Maps",      category:"Guest Amenities",  unit:"pcs",  quantity:50, par:60, reorder:30, supplier:"Sawtooth NF",        priceEach:"0.00",   priceBulk:"",       bulkQty:"",   notes:"Free — Garden Valley area"},
+];
+
+const {useState, useEffect, useRef, useCallback} = React;
+
+// ── Auth hook ─────────────────────────────────────────────────────────────────
+function useAuth() {
+  // null = loading, false = not logged in, object = logged in user
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    if (!FB_READY || !auth) { setUser(false); return; }
+    const unsub = auth.onAuthStateChanged(u => setUser(u || false));
+    return unsub;
+  }, []);
+  return user;
+}
+
+// ── Storage hook ──────────────────────────────────────────────────────────────
+function useStorage() {
+  const [items, setItemsState]      = useState([]);
+  const [customCats, setCustomCats] = useState([]);
+  const [synced, setSynced]         = useState(false);
+  const loaded = useRef(false);
+
+  useEffect(() => {
+    if (FB_READY && db) {
+      const invRef = db.ref('inventory');
+      const catRef = db.ref('categories');
+      invRef.once('value', snap => {
+        const val = snap.val();
+        if (val) {
+          setItemsState(Object.values(val).sort((a,b)=>a.id-b.id));
+        } else {
+          const obj = {};
+          SEED.forEach(it => { obj[`item_${it.id}`] = it; });
+          invRef.set(obj);
+          setItemsState(SEED);
+        }
+        setSynced(true);
+      });
+      catRef.once('value', snap2 => {
+        const val2 = snap2.val();
+        if (val2) setCustomCats(Array.isArray(val2) ? val2 : Object.values(val2));
+      });
+      invRef.on('value', snap => {
+        if (!loaded.current) { loaded.current=true; return; }
+        const val = snap.val();
+        if (val) setItemsState(Object.values(val).sort((a,b)=>a.id-b.id));
+      });
+      catRef.on('value', snap => {
+        const val = snap.val();
+        if (val) setCustomCats(Array.isArray(val)?val:Object.values(val));
+      });
+    } else {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORE);
+        setItemsState(raw ? JSON.parse(raw) : SEED);
+        const rawCat = localStorage.getItem(CAT_STORE);
+        setCustomCats(rawCat ? JSON.parse(rawCat) : []);
+      } catch { setItemsState(SEED); }
+      loaded.current = true;
+    }
+  }, []);
+
+  const saveItems = useCallback((newItems) => {
+    setItemsState(newItems);
+    if (FB_READY && db) {
+      const obj = {};
+      newItems.forEach(it => { obj[`item_${it.id}`] = it; });
+      db.ref('inventory').set(obj);
+    } else {
+      localStorage.setItem(LOCAL_STORE, JSON.stringify(newItems));
+    }
+  }, []);
+
+  const saveCustomCats = useCallback((cats) => {
+    setCustomCats(cats);
+    if (FB_READY && db) {
+      db.ref('categories').set(cats);
+    } else {
+      localStorage.setItem(CAT_STORE, JSON.stringify(cats));
+    }
+  }, []);
+
+  return [items, saveItems, customCats, saveCustomCats, synced];
+}
+
+// ── Login Screen ──────────────────────────────────────────────────────────────
+function LoginScreen() {
+  const [email, setEmail]     = useState('');
+  const [password, setPass]   = useState('');
+  const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    if (!email || !password) { setError('Please enter your email and password.'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      if (FB_READY && auth) {
+        await auth.signInWithEmailAndPassword(email, password);
+        // onAuthStateChanged in useAuth() will handle the rest
+      } else {
+        // localStorage mode: no real auth, just enter the app
+        // (Firebase not configured — skip login)
+        window._localAuthOverride = true;
+        window.dispatchEvent(new Event('localauth'));
+      }
+    } catch(err) {
+      const msgs = {
+        'auth/user-not-found':   'No account found with that email.',
+        'auth/wrong-password':   'Incorrect password. Please try again.',
+        'auth/invalid-email':    'Please enter a valid email address.',
+        'auth/too-many-requests':'Too many attempts. Please wait a moment.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+      };
+      setError(msgs[err.code] || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-header">
+          <span className="login-bear">🐻</span>
+          <div className="login-inn-name">Three Bears Inn</div>
+          <div className="login-subtitle">Inventory Management</div>
+        </div>
+        <form className="login-body" onSubmit={handleLogin}>
+          <p className="login-welcome">Sign in to access the inventory</p>
+          {error && <div className="login-error">{error}</div>}
+          <div className="login-field">
+            <label>Email Address</label>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e=>setEmail(e.target.value)}
+              placeholder="you@example.com"
+              disabled={loading}
+            />
+          </div>
+          <div className="login-field">
+            <label>Password</label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={e=>setPass(e.target.value)}
+              placeholder="••••••••"
+              disabled={loading}
+            />
+          </div>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? '…Signing in' : 'Sign In'}
+          </button>
+        </form>
+        <p className="login-footer">
+          Three Bears Inn · Garden Valley, Idaho<br/>
+          Staff access only
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── QR Code component ─────────────────────────────────────────────────────────
+function QRCode({ url, size=160 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || !url) return;
+    ref.current.innerHTML = '';
+    try { new window.QRCode(ref.current, { text:url, width:size, height:size, correctLevel:window.QRCode.CorrectLevel.M }); }
+    catch(e) { ref.current.textContent = 'QR unavailable'; }
+  }, [url, size]);
+  return <div ref={ref} />;
+}
+
+function Barcode({ value }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || !window.JsBarcode) return;
+    try { window.JsBarcode(ref.current, value, { format:'CODE128', width:1.5, height:36, displayValue:true, fontSize:11, margin:4 }); }
+    catch(e){}
+  }, [value]);
+  return <svg ref={ref} style={{maxWidth:'100%'}} />;
+}
+
+function Status({ qty, par, reorder }) {
+  if (qty <= reorder) return <span className="badge badge-crit">⚠ Critical</span>;
+  if (qty < par)      return <span className="badge badge-low">↓ Low</span>;
+  return                     <span className="badge badge-ok">✓ OK</span>;
+}
+
+function PriceBadge({ item }) {
+  if (item.priceBulk && item.bulkQty)
+    return <span className="badge badge-bulk" title={`${item.bulkQty} units`}>BULK {fmt$(item.priceBulk)}/{item.bulkQty}</span>;
+  if (item.priceEach)
+    return <span className="badge badge-ea">EA {fmt$(item.priceEach)}</span>;
+  return <span style={{color:'var(--gray400)',fontSize:'.78rem'}}>—</span>;
+}
+
+function itemUrl(id) {
+  const base = (window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1')
+    ? window.location.href.split('?')[0]
+    : GITHUB_DOMAIN + '/';
+  return `${base}?item=${skuOf(id)}`;
+}
+
+// ── QR Modal ──────────────────────────────────────────────────────────────────
+function QRModal({ item, onClose }) {
+  const url = itemUrl(item.id);
+  function handlePrint() {
+    const w = window.open('','_blank','width=400,height=500');
+    w.document.write(`<html><body style="font-family:sans-serif;text-align:center;padding:24px">
+      <h2 style="margin:0 0 4px">${item.name}</h2>
+      <p style="color:#666;margin:0 0 16px;font-size:.85rem">${skuOf(item.id)} · ${item.category}</p>
+      <div id="qr"></div>
+      <p style="font-size:.65rem;margin-top:12px;word-break:break-all;color:#999">${url}</p>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+      <script>new QRCode(document.getElementById('qr'),{text:'${url}',width:200,height:200});<\/script>
+    </body></html>`);
+    w.document.close();
+    setTimeout(()=>w.print(),800);
+  }
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:400}}>
+        <div className="modal-hdr">
+          <h2>QR Code</h2>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.5)'}}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="qr-card">
+            <h3>{item.name}</h3>
+            <p className="sku">{skuOf(item.id)} · {item.category}</p>
+            <QRCode url={url} size={200} />
+            <Barcode value={skuOf(item.id)} />
+            <p className="qr-url">{url}</p>
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+            <button className="btn btn-sky btn-sm" onClick={handlePrint}>🖨 Print Label</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{navigator.clipboard?.writeText(url);alert('Link copied!');}}>📋 Copy Link</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Add/Edit Modal ────────────────────────────────────────────────────────────
+function ItemModal({ item, categories, onSave, onClose }) {
+  const [form, setForm] = useState({...EMPTY, ...item});
+  const [catInput, setCatInput] = useState('');
+  const [showCatAdd, setShowCatAdd] = useState(false);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const savings = form.priceEach && form.priceBulk && form.bulkQty
+    ? ((parseFloat(form.priceEach)-parseFloat(form.priceBulk))*parseFloat(form.bulkQty)).toFixed(2)
+    : null;
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-hdr">
+          <h2>{item.id ? 'Edit Item' : 'Add Item'}</h2>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.5)'}}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>Item Name *</label>
+            <input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Queen Sheet Set" />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Category</label>
+              <select value={form.category} onChange={e=>set('category',e.target.value)}>
+                {categories.map(c=><option key={c}>{c}</option>)}
+              </select>
+              {!showCatAdd
+                ? <button type="button" className="btn btn-ghost btn-sm" style={{marginTop:5,alignSelf:'flex-start'}} onClick={()=>setShowCatAdd(true)}>＋ New category</button>
+                : <div className="cat-add-row">
+                    <input autoFocus value={catInput} onChange={e=>setCatInput(e.target.value)}
+                      onKeyDown={e=>{if(e.key==='Enter'&&catInput.trim()){set('category',catInput.trim());setShowCatAdd(false);setCatInput('');}}}
+                      placeholder="Category name then Enter" />
+                    <button className="btn btn-sky btn-sm" onClick={()=>{if(catInput.trim()){set('category',catInput.trim());setShowCatAdd(false);setCatInput('');}}}>Add</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setShowCatAdd(false)}>✕</button>
+                  </div>
+              }
+            </div>
+            <div className="form-group">
+              <label>Unit</label>
+              <select value={form.unit} onChange={e=>set('unit',e.target.value)}>
+                {["pcs","sets","btl","cans","jug","rolls","boxes","sleeves","bags"].map(u=><option key={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Quantity</label><input type="number" min="0" value={form.quantity} onChange={e=>set('quantity',+e.target.value)} /></div>
+            <div className="form-group"><label>Par Level</label><input type="number" min="0" value={form.par} onChange={e=>set('par',+e.target.value)} /></div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Reorder Point</label><input type="number" min="0" value={form.reorder} onChange={e=>set('reorder',+e.target.value)} /></div>
+            <div className="form-group"><label>Supplier</label><input value={form.supplier} onChange={e=>set('supplier',e.target.value)} placeholder="Supplier name" /></div>
+          </div>
+          <div className="price-section">
+            <h4>💰 Pricing</h4>
+            <div className="form-row">
+              <div className="form-group"><label>Price Each ($)</label><input type="number" min="0" step="0.01" value={form.priceEach} onChange={e=>set('priceEach',e.target.value)} placeholder="0.00" /></div>
+              <div className="form-group"><label>Bulk Price ($)</label><input type="number" min="0" step="0.01" value={form.priceBulk} onChange={e=>set('priceBulk',e.target.value)} placeholder="0.00" /></div>
+            </div>
+            <div className="form-group" style={{marginTop:8}}><label>Bulk Quantity</label><input type="number" min="0" value={form.bulkQty} onChange={e=>set('bulkQty',e.target.value)} placeholder="Units per bulk order" /></div>
+            {savings && <p className="savings-pill">💡 Save ${savings} when ordering {form.bulkQty} units at bulk price</p>}
+          </div>
+          <div className="form-group"><label>Notes</label><textarea rows="2" value={form.notes} onChange={e=>set('notes',e.target.value)} /></div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-sky" onClick={()=>{ if(!form.name.trim())return alert('Name required'); onSave(form); }}>Save Item</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reorder Modal ─────────────────────────────────────────────────────────────
+function ReorderModal({ items, onClose }) {
+  const low = items.filter(it=>it.quantity<=it.par);
+  const totalEst = low.reduce((s,it)=>{
+    const needed = it.par - it.quantity;
+    const cost = it.priceBulk && it.bulkQty
+      ? Math.ceil(needed/+it.bulkQty)*+it.bulkQty*parseFloat(it.priceBulk)
+      : needed*(parseFloat(it.priceEach)||0);
+    return s+cost;
+  },0);
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:560}}>
+        <div className="modal-hdr" style={{background:'var(--deep)'}}>
+          <h2>📋 Reorder Checklist</h2>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.5)'}}>✕</button>
+        </div>
+        <div className="modal-body">
+          {low.length===0
+            ? <p style={{textAlign:'center',color:'var(--green)',fontWeight:700}}>✅ All items are well-stocked!</p>
+            : <>
+              {low.map(it=>{
+                const needed = it.par-it.quantity;
+                const isBulk = it.priceBulk && it.bulkQty;
+                const cost = isBulk
+                  ? Math.ceil(needed/+it.bulkQty)*+it.bulkQty*parseFloat(it.priceBulk)
+                  : needed*(parseFloat(it.priceEach)||0);
+                return (
+                  <div key={it.id} className="reorder-item">
+                    <div>
+                      <div style={{fontWeight:700}}>{it.name}</div>
+                      <div style={{fontSize:'.78rem',color:'var(--gray600)'}}>{skuOf(it.id)} · {it.supplier||'Unknown supplier'}</div>
+                      <div style={{fontSize:'.78rem',marginTop:2}}>
+                        <Status qty={it.quantity} par={it.par} reorder={it.reorder} />
+                        <span style={{marginLeft:8,color:'var(--gray600)'}}>Have {it.quantity} / Par {it.par}</span>
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right',minWidth:90}}>
+                      <div style={{fontWeight:700,color:'var(--deep)'}}>Need {needed} {it.unit}</div>
+                      {cost>0 && <div style={{fontSize:'.75rem',color:'var(--sky)'}}>
+                        {isBulk?'~':''}${cost.toFixed(2)} {isBulk?`(bulk×${Math.ceil(needed/+it.bulkQty)})':'(EA)'}
+                      </div>}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{textAlign:'right',padding:'10px 0 0',fontWeight:700,color:'var(--deep)'}}>
+                Estimated Reorder Total: ${totalEst.toFixed(2)}
+              </div>
+            </>
+          }
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
+          <button className="btn btn-sky" onClick={()=>window.print()}>🖨 Print List</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Manage Categories Modal ───────────────────────────────────────────────────
+function CatModal({ baseCategories, customCats, onSave, onClose }) {
+  const [cats, setCats] = useState([...customCats]);
+  const [input, setInput] = useState('');
+  function add() {
+    const t = input.trim();
+    if (t && !cats.includes(t) && !baseCategories.includes(t)) { setCats([...cats,t]); setInput(''); }
+  }
+  return (
+    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:420}}>
+        <div className="modal-hdr">
+          <h2>Manage Categories</h2>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{color:'#fff',borderColor:'rgba(255,255,255,.5)'}}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>Built-in Categories</label>
+            <div className="cat-pills">
+              {baseCategories.map(c=><span key={c} className="cat-pill" style={{background:'var(--gray100)',color:'var(--gray600)'}}>{c}</span>)}
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Custom Categories</label>
+            <div className="cat-pills">
+              {cats.length===0 && <span style={{fontSize:'.78rem',color:'var(--gray400)'}}>None added yet</span>}
+              {cats.map(c=><span key={c} className="cat-pill">{c}<button onClick={()=>setCats(cats.filter(x=>x!==c))}>×</button></span>)}
+            </div>
+            <div className="cat-add-row" style={{marginTop:10}}>
+              <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="New category name" />
+              <button className="btn btn-sky btn-sm" onClick={add}>Add</button>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-sky" onClick={()=>{ onSave(cats); onClose(); }}>Save Categories</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Inventory App ─────────────────────────────────────────────────────────────
+function InventoryApp({ user, onLogout }) {
+  const [items, saveItems, customCats, saveCustomCats, synced] = useStorage();
+  const [search, setSearch]       = useState('');
+  const [activeTab, setTab]       = useState('All');
+  const [editItem, setEdit]       = useState(null);
+  const [qrItem, setQrItem]       = useState(null);
+  const [showReorder, setReorder] = useState(false);
+  const [showCatMgr, setCatMgr]   = useState(false);
+  const [highlightId, setHighlight]= useState(null);
+  const nextId = useRef(null);
+  const categories = [...BASE_CATEGORIES, ...customCats];
+
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    const sku = params.get('item');
+    if (!sku || items.length===0) return;
+    const found = items.find(it=>skuOf(it.id)===sku);
+    if (found) {
+      setHighlight(found.id); setTab('All');
+      setTimeout(()=>{
+        const el = document.querySelector(`[data-row-id="${found.id}"]`);
+        if (el) el.scrollIntoView({behavior:'smooth',block:'center'});
+        setTimeout(()=>setHighlight(null),3000);
+      },400);
+    }
+  },[items]);
+
+  useEffect(()=>{
+    if (items.length>0) nextId.current = Math.max(...items.map(i=>i.id))+1;
+    else nextId.current = 41;
+  },[items]);
+
+  function saveItem(form) {
+    if (form.id) { saveItems(items.map(it=>it.id===form.id?{...it,...form}:it)); }
+    else { const id = nextId.current++; saveItems([...items,{...form,id}]); }
+    setEdit(null);
+  }
+  function deleteItem(id) {
+    if (!confirm('Delete this item?')) return;
+    saveItems(items.filter(it=>it.id!==id));
+  }
+
+  const visible = items.filter(it=>{
+    const matchTab = activeTab==='All' || it.category===activeTab;
+    const q = search.toLowerCase();
+    const matchSearch = !q || it.name.toLowerCase().includes(q) || skuOf(it.id).includes(q) || it.supplier?.toLowerCase().includes(q);
+    return matchTab && matchSearch;
+  });
+
+  const critCount = items.filter(it=>it.quantity<=it.reorder).length;
+  const lowCount  = items.filter(it=>it.quantity>it.reorder&&it.quantity<it.par).length;
+  const okCount   = items.filter(it=>it.quantity>=it.par).length;
+
+  return (
+    <>
+      <header className="hdr">
+        <div>
+          <div className="hdr-title">🐻 Three Bears Inn</div>
+          <div className="hdr-sub">Inventory · Garden Valley, Idaho</div>
+        </div>
+        <div className="hdr-right">
+          <span className={`sync-dot ${FB_READY&&synced?'':'off'}`} />
+          <span className="sync-label">{FB_READY&&synced?'Synced':FB_READY?'Connecting…':'Local'}</span>
+          <button className="btn btn-sky btn-sm" style={{marginLeft:6}} onClick={()=>setEdit({...EMPTY})}>＋ Add Item</button>
+          {FB_READY && user && <button className="logout-btn" onClick={onLogout}>Sign Out</button>}
+        </div>
+      </header>
+
+      {!FB_READY && (
+        <div className="fb-notice">
+          <strong>☁️ Set up cross-device sync (optional)</strong>
+          Saving data to this device only. See the HTML source for setup instructions.
+        </div>
+      )}
+
+      <div className="toolbar">
+        <div className="search-wrap">
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input className="search-input" placeholder="Search items, SKU, supplier…" value={search} onChange={e=>setSearch(e.target.value)} />
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>setCatMgr(true)}>⚙ Categories</button>
+        <button className="btn btn-deep  btn-sm" onClick={()=>setReorder(true)}>📋 Reorder ({critCount+lowCount})</button>
+      </div>
+
+      <div className="tabs">
+        {['All',...categories].map(c=>(
+          <button key={c} className={`tab${activeTab===c?' active':''}`} onClick={()=>setTab(c)}>{c}</button>
+        ))}
+      </div>
+
+      <div className="stats">
+        <div className="stat-card"><div className="stat-val">{items.length}</div><div className="stat-label">Total Items</div></div>
+        <div className="stat-card red"><div className="stat-val">{critCount}</div><div className="stat-label">Critical</div></div>
+        <div className="stat-card amber"><div className="stat-val">{lowCount}</div><div className="stat-label">Low Stock</div></div>
+        <div className="stat-card green"><div className="stat-val">{okCount}</div><div className="stat-label">Well Stocked</div></div>
+      </div>
+
+      <div className="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th><th>Item</th><th>Category</th><th>Qty</th><th>Par</th>
+              <th>Status</th><th>Price</th><th>Supplier</th>
+              <th style={{textAlign:'center'}}>QR</th><th style={{textAlign:'center'}}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.length===0&&<tr><td colSpan={10} style={{textAlign:'center',padding:'30px',color:'var(--gray400)'}}>No items found</td></tr>}
+            {visible.map(it=>(
+              <tr key={it.id} data-row-id={it.id} className={highlightId===it.id?'highlight':''}>
+                <td style={{fontFamily:'monospace',fontSize:'.78rem',color:'var(--gray600)'}}>{skuOf(it.id)}</td>
+                <td><div style={{fontWeight:700}}>{it.name}</div>{it.notes&&<div style={{fontSize:'.72rem',color:'var(--gray400)',marginTop:1}}>{it.notes}</div>}</td>
+                <td><span className="badge badge-cat">{it.category}</span></td>
+                <td style={{fontWeight:700}}>{it.quantity} <span style={{color:'var(--gray400)',fontWeight:400,fontSize:'.78rem'}}>{it.unit}</span></td>
+                <td style={{color:'var(--gray600)'}}>{it.par}</td>
+                <td><Status qty={it.quantity} par={it.par} reorder={it.reorder} /></td>
+                <td><PriceBadge item={it} /></td>
+                <td style={{fontSize:'.8rem',color:'var(--gray600)'}}>{it.supplier||'—'}</td>
+                <td style={{textAlign:'center'}}><button className="btn btn-ghost btn-sm" onClick={()=>setQrItem(it)} title="Show QR">⬛</button></td>
+                <td style={{textAlign:'center'}}>
+                  <div style={{display:'flex',gap:4,justifyContent:'center'}}>
+                    <button className="btn btn-sky btn-sm" onClick={()=>setEdit({...it})}>Edit</button>
+                    <button className="btn btn-red btn-sm" onClick={()=>deleteItem(it.id)}>Del</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p style={{fontSize:'.72rem',color:'var(--gray400)',marginTop:10,textAlign:'right'}}>
+          Showing {visible.length} of {items.length} items
+          {FB_READY ? ' · ☁️ Cloud sync active' : ' · 💾 Stored locally on this device'}
+        </p>
+      </div>
+
+      {editItem   && <ItemModal item={editItem} categories={categories} onSave={saveItem} onClose={()=>setEdit(null)} />}
+      {qrItem     && <QRModal item={qrItem} onClose={()=>setQrItem(null)} />}
+      {showReorder && <ReorderModal items={items} onClose={()=>setReorder(false)} />}
+      {showCatMgr  && <CatModal baseCategories={BASE_CATEGORIES} customCats={customCats} onSave={saveCustomCats} onClose={()=>setCatMgr(false)} />}
+    </>
+  );
+}
+
+// ── Root ──────────────────────────────────────────────────────────────────────
+function Root() {
+  const user = useAuth();
+  // localStorage-only mode: localAuthOverride bypasses login
+  const [localAuth, setLocalAuth] = useState(!FB_READY);
+
+  useEffect(()=>{
+    const handler = () => setLocalAuth(true);
+    window.addEventListener('localauth', handler);
+    return () => window.removeEventListener('localauth', handler);
+  },[]);
+
+  function handleLogout() {
+    if (auth) auth.signOut();
+  }
+
+  // Still checking auth state with Firebase
+  if (FB_READY && user === null) {
+    return (
+      <div className="login-page">
+        <div className="login-loading">
+          <div className="spin" />
+          <span>Connecting…</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Firebase configured but not logged in
+  if (FB_READY && !user) {
+    return <LoginScreen />;
+  }
+
+  // Logged in (Firebase) or localStorage mode
+  if (localAuth || user) {
+    return <InventoryApp user={user} onLogout={handleLogout} />;
+  }
+
+  // Firebase not configured — show login screen anyway so it still looks right
+  return <LoginScreen />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+</script>
+</body>
+</html>
